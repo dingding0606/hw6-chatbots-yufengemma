@@ -16,7 +16,7 @@ class Chatbot:
 
     def __init__(self):
         # The chatbot's default name is `moviebot`.
-        self.name = 'moviebot' # TODO: Give your chatbot a new name.
+        self.name = 'MOOviebot' # TODO: Give your chatbot a new name.
 
         # This matrix has the following shape: num_movies x num_users
         # The values stored in each row i and column j is the rating for
@@ -41,14 +41,15 @@ class Chatbot:
         Consider adding to this description any information about what your
         chatbot can do and how the user can interact with it.
         """
+        
         return """
-        Your task is to implement the chatbot as detailed in the HW6
-        instructions (README.md).
-
-        To exit: write ":quit" (or press Ctrl-C to force the exit)
-
-        TODO: Write the description for your own chatbot here in the `intro()` function.
+        Hi! I'm MOOviebot.
+        I'm going to recommend a movie to you. 
+        First I will ask you about your taste in movies. 
+        Tell me about a movie that you have seen. 
+        To exit: write ":quit" (or press Ctrl-C to force the exit).
         """
+    
 
     def greeting(self):
         """Return a message that the chatbot uses to greet the user."""
@@ -56,7 +57,7 @@ class Chatbot:
         # TODO: Write a short greeting message                                 #
         ########################################################################
 
-        greeting_message = "How can I help you?"
+        greeting_message = "Hey, how can I help you?"
 
         ########################################################################
         #                             END OF YOUR CODE                         #
@@ -71,7 +72,7 @@ class Chatbot:
         # TODO: Write a short farewell message                                 #
         ########################################################################
 
-        goodbye_message = "Have a nice day!"
+        goodbye_message = "Have a nice day :)"
 
         ########################################################################
         #                          END OF YOUR CODE                            #
@@ -118,7 +119,7 @@ class Chatbot:
         # directly based on how modular it is, we highly recommended writing   #
         # code in a modular fashion to make it easier to improve and debug.    #
         ########################################################################
-
+    
         response = "I (the chatbot) processed '{}'".format(line)
 
         ########################################################################
@@ -161,8 +162,11 @@ class Chatbot:
         """
         ########################################################################
         #                          START OF YOUR CODE                          #
-        ########################################################################                                             
-        return [] # TODO: delete and replace this line
+        ########################################################################                                   
+        pattern = r"\"(.*?)\""
+        
+        return re.findall(pattern, user_input)
+
         ########################################################################
         #                          END OF YOUR CODE                            #
         ########################################################################
@@ -202,8 +206,11 @@ class Chatbot:
         """
         ########################################################################
         #                          START OF YOUR CODE                          #
-        ########################################################################                                                 
-        return [] # TODO: delete and replace this line
+        ########################################################################                                   
+        regex = r"(\d*)%.*?(?:" + title + r").*?%"
+        print(regex)
+        indices = re.findall(regex, movie_file, flags=re.IGNORECASE)
+        return indices
         ########################################################################
         #                          END OF YOUR CODE                            #
         ########################################################################
