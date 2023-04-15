@@ -29,7 +29,14 @@ class Chatbot:
         # Train the classifier
         self.train_logreg_sentiment_classifier()
 
-        # TODO: put any other class variables you need here 
+        # TODO: put any other class variables you need here
+        
+        #### possible ways of holding onto user input: ####
+        # self.user_data_points = {"positive": [], "negative": []}
+        #self.user_data_points = {<user_input> : (<actual title>, <sentiment>)}
+        self.num_data_points = 0
+        
+        self.original_user_input = "" # in the case that sentiment is defined (not 0)
 
     ############################################################################
     # 1. WARM UP REPL                                                          #
@@ -119,9 +126,34 @@ class Chatbot:
         # directly based on how modular it is, we highly recommended writing   #
         # code in a modular fashion to make it easier to improve and debug.    #
         ########################################################################
-    
-        response = "I (the chatbot) processed '{}'".format(line)
-
+        response = ""
+        
+        possible_titles = self.extract_titles(line)
+        
+        # no titles in input
+        if len(possible_titles) == 0:
+            return "Sorry, I don't understand. Tell me about a movie that you've seen, and please put the title of the movie in quotes"
+        
+        # determine sentiment of input line (either 0, 1, or -1)
+        sentiment = self.predict_sentiment_rule_based(line)
+        if (sentiment == 0) and (len(possible_titles) == 1):
+            return "I'm sorry, I couldn't tell if you liked or disliked %s. Tell me more!".format(possible_titles[0])
+        
+        # extract any titles and disambiguate
+        if(len(narrowed_titles) > 1):
+            narrowed_titles = disambiguate_candidates(possible_titles)
+            if narrowed_titles == 0:
+                print("Sorry, that didn't help me figure out which title you mean. Please try again.")
+                print("Which of the following movies did you mean?")
+                for movie in possible_titles
+        
+        # add title as value for appropriate key in self.user_data_points
+        # if self.num_data_points < 5: 
+            # return response asking for more data
+        # else:
+            # generate movie recommendation
+            # return recommendation response
+        
         ########################################################################
         #                          END OF YOUR CODE                            #
         ########################################################################
@@ -207,10 +239,23 @@ class Chatbot:
         ########################################################################
         #                          START OF YOUR CODE                          #
         ########################################################################                                   
-        regex = r"(\d*)%.*?(?:" + title + r").*?%"
-        print(regex)
-        indices = re.findall(regex, movie_file, flags=re.IGNORECASE)
+        indices = []
+        
+        for i, movie in enumerate(self.titles):
+            full_title = movie[0]
+            
+            # use lower() so that matching is case-insensitive
+            if title.lower() in full_title.lower().split():
+                indices.append(i)
+        
         return indices
+        
+        
+#         regex = r"(\d*)%.*?(?:" + title + r").*?%"
+#         print(regex)
+#         indices = re.findall(regex, movie_file, flags=re.IGNORECASE)
+#         return indices
+
         ########################################################################
         #                          END OF YOUR CODE                            #
         ########################################################################
@@ -269,8 +314,15 @@ class Chatbot:
         """
         ########################################################################
         #                          START OF YOUR CODE                          #
-        ########################################################################                                                 
-        return [] # TODO: delete and replace this line
+        ########################################################################                                   
+        possible_movies = []
+        
+        for index in candidates:
+            if clarification.lower() in self.titles[index][0].lower():
+                possible_movies.append(index)
+        
+        return possible_movies
+        
         ########################################################################
         #                          END OF YOUR CODE                            #
         ########################################################################
@@ -310,7 +362,7 @@ class Chatbot:
         ########################################################################
         #                          START OF YOUR CODE                          #
         ########################################################################                                                  
-        return 0 # TODO: delete and replace this line
+        return 1 # TODO: delete and replace this line
         ########################################################################
         #                          END OF YOUR CODE                            #
         ########################################################################
@@ -383,7 +435,7 @@ class Chatbot:
         ########################################################################
         #                          START OF YOUR CODE                          #
         ########################################################################                                             
-        return 0 # TODO: delete and replace this line
+        return 1 # TODO: delete and replace this line
         ########################################################################
         #                          END OF YOUR CODE                            #
         ########################################################################
