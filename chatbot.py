@@ -32,7 +32,7 @@ class Chatbot:
         # TODO: put any other class variables you need here
         
         #### possible ways of holding onto user input: ####
-        self.data_points = {1: [], -1: []}
+        self.data_points = defaultdict(int)
         self.num_data_points = 0
         self.current_title = []
         self.current_sentiment = 0
@@ -107,9 +107,54 @@ class Chatbot:
         self.num_sentiment_clarifications = 0
         
     def get_num_data_points(self):
-        num_pos = len(self.data_points[1])
-        num_neg = len(self.data_points[-1])
-        return num_pos + num_neg
+        return len(self.data_points)
+    
+    def get_indices_from_line(self, line: str) -> list:
+        titles = self.extract_titles(line)
+        if len(titles) == 0:
+            return []
+        else:
+            return self.find_movies_idx_by_title(titles[0])
+        
+    def get_titles_from_indices(self, indices: list) -> list:
+        titles = []
+        for index in indices:
+            titles.append(self.titles[index][0])
+        return titles
+    
+    def get_title_clarification(self) -> str:
+        self.num_title_clarifications += 1
+        response = "[title unclear] We have a couple titles matching that movie in our database. Which one did you see?\n"
+        for title in self.get_titles_from_indices(self.current_title):
+            response += str(title) + "\n"
+        
+        return response
+    
+    def get_wrapup_response(self) -> str:
+        response = ""
+        if self.get_num_data_points() >= 5:
+            # make a movie recommendation
+            response = "[sentiment and title confirmed and 5 data points] We recommend ...."
+        else:
+            response = "[sentiment and title confirmed] Thank you. Tell me about another movie you have seen."
+        return response
+    
+    def get_response_given_one_title(self) -> str:
+        response = ""
+        if self.current_sentiment != 0:
+            # update data point dictionary
+            self.data_points[self.current_title[0]] = self.current_sentiment
+                    
+            # reinitialize current variables
+            self.initialize_variables()
+            # check data points -- do we have 5?
+            response = self.get_wrapup_response()
+                     
+        else: # current sentiment = 0 , i.e., unclear, we ask for sentiment.
+            self.num_sentiment_clarifications += 1
+            response = "[title confirmed and sentiment unclear] Tell me more about what you thought of that movie."
+        
+        return response
     
     def process(self, line: str) -> str:
         """Process a line of input from the REPL and generate a response.
@@ -148,106 +193,45 @@ class Chatbot:
             self.current_sentiment = self.predict_sentiment_rule_based(line)
             
             # extract title from input
-            possible_titles = self.find_movies_idx_by_title(self.extract_titles(line)[0])
-            self.current_title = possible_titles
-            print("HI: ", self.current_title)
+            possible_title_indices = self.get_indices_from_line(line)
+            self.current_title = possible_title_indices
+            print("Title indices: ", self.current_title)
             
             # Multiple possible titles
-            if len(possible_titles) > 1:
-                self.num_title_clarifications += 1
-                response = "[title unclear] We have a couple titles matching that movie in our database. Which one did you see?\n"
-                for title in possible_titles:
-                    response += str(title) + "\n"
+            if len(self.current_title) > 1:
+                response = self.get_title_clarification()
             
             # Only 1 possible title :)
-            elif len(possible_titles) == 1:
-                if self.current_sentiment == 0:
-                    self.num_sentiment_clarifications += 1
-                    response = "[title confirmed and sentiment unclear] Tell me more about what you thought of that movie." 
-                else:
-                    # update data point dictionary
-                    self.data_points[self.current_sentiment].append(self.current_title[0])
-                    
-                    # reinitialize current variables
-                    self.initialize_variables()
-                    # check data points -- do we have 5?
-                    if self.get_num_data_points() >= 5:
-                        # make a movie recommendation
-                        response = "[sentiment and title confirmed and 5 data points] We recommend ...."
-                    else:
-                        response = "[sentiment and title confirmed] Thank you. Tell me about another movie you have seen."
-            
+            elif len(self.current_title) == 1:
+                response = self.get_response_given_one_title()
+                
             # No possible title. Ask again.
             else:
-                self.num_title_clarifications += 1
-                response = "[sentiment and title unclear] I'm sorry, I'm just a frame-based chatbot and I don't understand. Can you tell me about an actual movie you've seen?"
+                response = "[sentiment and title unclear] I'm sorry, I'm just a frame-based chatbot and I don't understand. Can you tell me about an actual movie you've seen? Please put the movie title in quotation marks."
         
         # MORE THAN 1 CANDIDATES FOR TITLE
         elif len(self.current_title) > 1:
             narrowed_titles = self.disambiguate_candidates(line.strip(), self.current_title)
             
             if len(narrowed_titles) == 1:
-                # Update self.current_title
+                self.current_title = narrowed_titles      
+                response = self.get_response_given_one_title()
+                
+            elif len(narrowed_titles) > 1:
                 self.current_title = narrowed_titles
+                response = self.get_title_clarification()
                 
-                if self.current_sentiment != 0:
-                    # update data point dictionary
-                    self.data_points[self.current_sentiment].append(self.current_title[0])
-                    
-                    # reinitialize current variables
-                    self.initialize_variables()
-                    # check data points -- do we have 5?
-                    if self.get_num_data_points() >= 5:
-                        # make a movie recommendation
-                        response = "[sentiment and title confirmed and 5 data points] We recommend ...."
-                    else:
-                        response = "[sentiment and title confirmed] Thank you. Tell me about another movie you have seen."
-                     
-                else: # current sentiment = 0 , i.e., unclear, we ask for sentiment.
-                    self.num_sentiment_clarifications += 1
-                    response = "[title confirmed and sentiment unclear] Tell me more about what you thought of that movie." 
+            else: 
+                response = self.get_title_clarification()
                 
-            elif len(narrowed_titles) > 1: # still unable to fully narrow down to 1
-                self.current_title = narrowed_titles
-                
-                # keep asking for which one it is.
-                self.num_title_clarifications += 1
-                response = "[title unclear] We still have a couple titles matching that movie in our database. Which one did you see?\n"
-                for title in self.current_title:
-                    response += str(title) + "\n"
-                
-            else: # Narrowed title is empty. 
-                self.num_title_clarifications += 1
-                response = "[title unclear] We still have a couple titles matching that movie in our database. Which one did you see?\n"
-                for title in self.current_title:
-                    response += str(title) + "\n"
-              
         # WE HAVE EXACTLY 1 CANDIDATE TITLE
         else:
-            # check sentiment
-            if self.current_sentiment != 0:
-                    # update data point dictionary
-                    self.data_points[self.current_sentiment].append(self.current_title[0])
-                    
-                    # reinitialize current variables
-                    self.initialize_variables()
-                    # check data points -- do we have 5?
-                    if self.get_num_data_points() >= 5:
-                        # make a movie recommendation
-                        response = "[sentiment and title confirmed and 5 data points] We recommend ...."
-                    else:
-                        response = "[sentiment and title confirmed] Thank you. Tell me about another movie you have seen."
-                     
-            else: # current sentiment = 0 , i.e., unclear, we ask for sentiment.
-                self.num_sentiment_clarifications += 1
-                response = "[title confirmed and sentiment unclear] Tell me more about what you thought of that movie." 
+            response = self.get_response_given_one_title()
             
-        
         # ----- DONE WITH CASES, BEFORE WE RETURN ----- #
-        
         # Check that we have not exceeded either 5 title or 5 sentiment clarifications
         if (self.num_title_clarifications > 5) or (self.num_sentiment_clarifications > 5):
-            response = "[exceeded num clarifications] Hm. We can't seem to figure out what exactly to make of your response. Would you mind telling me about a different movie you've seen?" 
+            response = "[exceeded num clarifications] Hm. I can't seem to figure out what exactly to make of your response. Would you mind telling me about a different movie you've seen?" 
             self.initialize_variables()
         
         return response
