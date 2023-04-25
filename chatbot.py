@@ -5,6 +5,8 @@ import re
 import sklearn
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn import linear_model
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
 import nltk 
 from collections import defaultdict, Counter
 from typing import List, Dict, Union, Tuple
@@ -28,8 +30,6 @@ class Chatbot:
 
         # Train the classifier
         self.train_logreg_sentiment_classifier()
-
-        # TODO: put any other class variables you need here
         
         #### possible ways of holding onto user input: ####
         self.data_points = defaultdict(int)
@@ -442,12 +442,37 @@ class Chatbot:
         """
         ########################################################################
         #                          START OF YOUR CODE                          #
-        ########################################################################                                                  
-        return 1 # TODO: delete and replace this line
+        ########################################################################                                   
+        sentiment = 0
+        
+        for word in self.tokenizer(user_input):
+            if word in self.sentiment.keys():
+                if self.sentiment[word] == "pos":
+                    sentiment += 1
+                else:
+                    sentiment -= 1
+        
+        if sentiment > 0:
+            return 1
+        elif sentiment < 0:
+            return -1
+        else:
+            return 0
+        
         ########################################################################
         #                          END OF YOUR CODE                            #
         ########################################################################
+    
+    def tokenizer(self, text: str) -> List[str]:
+        '''
+        Citation: This tokenizer function & regex rule is borrowed from Katie's tokenizer regex demo at:
+        https://www.cs.williams.edu/~kkeith/teaching/s23/cs375/attach/tokenization_regex_demo.html
 
+        This helper function takes a string and returns a list of tokenized strings.
+        '''
+        regex = r"[A-Za-z]+|\$[\d\.]+|\S+" 
+        return nltk.regexp_tokenize(text, regex)
+    
     def train_logreg_sentiment_classifier(self):
         """
         Trains a bag-of-words Logistic Regression classifier on the Rotten Tomatoes dataset 
@@ -467,17 +492,46 @@ class Chatbot:
             - Our solution uses less than about 10 lines of code. Your solution might be a bit too complicated.
             - We achieve greater than accuracy 0.7 on the training dataset. 
         """ 
-        #load training data  
-        texts, y = util.load_rotten_tomatoes_dataset()
-
-        self.model = None #variable name that will eventually be the sklearn Logistic Regression classifier you train 
-        self.count_vectorizer = None #variable name will eventually be the CountVectorizer from sklearn 
-
+        
         ########################################################################
         #                          START OF YOUR CODE                          #
-        ########################################################################                                                
+        ########################################################################  
         
-        pass # TODO: delete and replace this line
+        #load training data  
+        
+        texts, y = util.load_rotten_tomatoes_dataset()
+        y = [1 if label=='Fresh' else -1 for label in y]
+        texts = [text.lower() for text in texts]
+        
+        # TODO consider grid search for tuning hyperparameters
+        
+        self.model = linear_model.LogisticRegression() #variable name that will eventually be the sklearn Logistic Regression classifier you train
+        
+        self.count_vectorizer = CountVectorizer(min_df=20,
+                                                stop_words='english',
+                                                max_features=1000)
+        
+        # train-dev-test split
+        X_train, X_test, y_train, y_test = train_test_split(texts, y, test_size=0.33, random_state=42)
+        X_dev, X_test, y_dev, y_test = train_test_split(X_test, y_test, test_size=0.5, random_state=42)
+        
+        # Tokenization
+        X_train = self.count_vectorizer.fit_transform(X_train).toarray()
+        y_train = np.array(y_train)
+        
+        X_dev = self.count_vectorizer.transform(X_dev).toarray()
+        y_dev = np.array(y_dev)
+        
+        X_test = self.count_vectorizer.transform(X_test).toarray()
+        y_test = np.array(y_test)
+        
+        x_columns_as_words = self.count_vectorizer.get_feature_names_out()
+        
+        # Training
+        self.model.fit(X_train, y_train)
+        
+        # Deving
+        print("Accuracy on the dev set: ", self.model.score(X_dev, y_dev))
 
         ########################################################################
         #                          END OF YOUR CODE                            #
@@ -516,7 +570,14 @@ class Chatbot:
         ########################################################################
         #                          START OF YOUR CODE                          #
         ########################################################################                                             
-        return 1 # TODO: delete and replace this line
+        X = self.count_vectorizer.transform([user_input.lower()]).toarray()
+        
+        if (X == ([0] * len(X))).all():
+            return 0
+        
+        y = self.model.predict(X)        
+        return y
+        
         ########################################################################
         #                          END OF YOUR CODE                            #
         ########################################################################
@@ -557,8 +618,10 @@ class Chatbot:
         """ 
         ########################################################################
         #                          START OF YOUR CODE                          #
-        ########################################################################                                                    
-        return [""]  # TODO: delete and replace this line
+        ########################################################################                                   
+        # binarize user ratings and get ratings matrix
+        return self.recommend(user_rating_all_movies: np.ndarray, ratings_matrix:np.ndarray, num_return: int=10)
+
         ########################################################################
         #                          END OF YOUR CODE                            #
         ########################################################################
