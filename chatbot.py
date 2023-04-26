@@ -134,7 +134,8 @@ class Chatbot:
         response = ""
         if self.get_num_data_points() >= 5:
             # make a movie recommendation
-            response = "[sentiment and title confirmed and 5 data points] We recommend ...."
+            recommendations = self.get_titles_from_indices(self.recommend_movies(self.data_points, 5))
+            response = "[sentiment and title confirmed and 5 data points] We recommend: \n" + str(recommendations)
         else:
             response = "[sentiment and title confirmed] Thank you. Tell me about another movie you have seen."
         return response
@@ -226,6 +227,8 @@ class Chatbot:
                 
         # WE HAVE EXACTLY 1 CANDIDATE TITLE
         else:
+            if self.current_sentiment == 0:
+                self.current_sentiment = self.predict_sentiment_rule_based(line)
             response = self.get_response_given_one_title()
             
         # ----- DONE WITH CASES, BEFORE WE RETURN ----- #
@@ -284,6 +287,16 @@ class Chatbot:
         #                          END OF YOUR CODE                            #
         ########################################################################
 
+    def remove_non_alphanumeric_tokens(self, input:str) -> list:
+        tokens = self.tokenizer(input)
+        cleaned = []
+        for token in tokens:
+            alphanumerics = ''.join(c for c in token if c.isalnum())
+            if alphanumerics != '':
+                cleaned.append(alphanumerics)
+        
+        return cleaned
+        
     def find_movies_idx_by_title(self, title:str) -> list:
         """ Given a movie title, return a list of indices of matching movies
         The indices correspond to those in data/movies.txt.
@@ -326,8 +339,19 @@ class Chatbot:
             full_title = movie[0]
             
             # use lower() so that matching is case-insensitive
-            if title.lower() in full_title.lower().split():
+            if title.lower() in full_title.lower():
                 indices.append(i)
+            else:
+                total_matches = 0
+                tokenized_input = self.remove_non_alphanumeric_tokens(title.lower())
+                tokenized_potential_title = self.remove_non_alphanumeric_tokens(full_title.lower())
+                
+                for word in tokenized_input:
+                    if word in tokenized_potential_title:
+                        total_matches += 1
+                
+                if (total_matches/len(tokenized_potential_title)) >= 0.5:
+                    indices.append(i)
         
         return indices
         
@@ -620,8 +644,13 @@ class Chatbot:
         #                          START OF YOUR CODE                          #
         ########################################################################                                   
         # binarize user ratings and get ratings matrix
-        return self.recommend(user_rating_all_movies: np.ndarray, ratings_matrix:np.ndarray, num_return: int=10)
+        sparse_data_array = [0] *len(self.titles)
 
+        for key in user_ratings.keys():
+            sparse_data_array[key] = user_ratings[key]
+        
+        return util.recommend(sparse_data_array, self.ratings, num_return)
+    
         ########################################################################
         #                          END OF YOUR CODE                            #
         ########################################################################
