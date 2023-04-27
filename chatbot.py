@@ -134,7 +134,7 @@ class Chatbot:
         response = ""
         if self.get_num_data_points() >= 5:
             # make a movie recommendation
-            recommendations = self.get_titles_from_indices(self.recommend_movies(self.data_points, 5))
+            recommendations = self.recommend_movies(self.data_points, 5)
             response = "[sentiment and title confirmed and 5 data points] We recommend: \n" + str(recommendations)
         else:
             response = "[sentiment and title confirmed] Thank you. Tell me about another movie you have seen."
@@ -196,7 +196,6 @@ class Chatbot:
             # extract title from input
             possible_title_indices = self.get_indices_from_line(line)
             self.current_title = possible_title_indices
-            print("Title indices: ", self.current_title)
             
             # Multiple possible titles
             if len(self.current_title) > 1:
@@ -281,7 +280,13 @@ class Chatbot:
         ########################################################################                                   
         pattern = r"\"(.*?)\""
         
-        return re.findall(pattern, user_input)
+        match = re.findall(pattern, user_input)
+        
+        if len(match) == 0:
+            return [user_input]
+            
+        return match
+            
 
         ########################################################################
         #                          END OF YOUR CODE                            #
@@ -350,7 +355,7 @@ class Chatbot:
                     if word in tokenized_potential_title:
                         total_matches += 1
                 
-                if (total_matches/len(tokenized_potential_title)) >= 0.5:
+                if (total_matches/len(tokenized_potential_title)) >= 0.6:
                     indices.append(i)
         
         return indices
@@ -470,8 +475,8 @@ class Chatbot:
         sentiment = 0
         
         for word in self.tokenizer(user_input):
-            if word in self.sentiment.keys():
-                if self.sentiment[word] == "pos":
+            if word.lower() in self.sentiment.keys():
+                if self.sentiment[word.lower()] == "pos":
                     sentiment += 1
                 else:
                     sentiment -= 1
@@ -649,7 +654,7 @@ class Chatbot:
         for key in user_ratings.keys():
             sparse_data_array[key] = user_ratings[key]
         
-        return util.recommend(sparse_data_array, self.ratings, num_return)
+        return  self.get_titles_from_indices(util.recommend(sparse_data_array, self.ratings, num_return))
     
         ########################################################################
         #                          END OF YOUR CODE                            #
@@ -660,19 +665,71 @@ class Chatbot:
     # 5. Open-ended                                                            #
     ############################################################################
 
-    def function1():
+    def function1(self, title:str) -> list:
         """
-        TODO: delete and replace with your function.
-        Be sure to put an adequate description in this docstring.  
+        Matches movie title even though it is not in quotation marks. Case insensitive.
+        
+        Option 1: Matches potential title if a certain percent of tokens in that title is 
+        matched with the user input. Such percent depends on the length of the
+        potential title. 
+
+        E.g. when the title is "Chisum (1970)" (length == 2), 50% of the tokens must be matched.
+
+        Option 5: This matching scheme is based on percentage of tokens matched in a title, so
+        it also fulfills Option 5. "American in Paris, An (1951)" is of length 5, which means
+        60% of its tokens, or three words, must be present in the user input. So, a user could write
+        either "I liked "American in Paris"" or "I liked "An American in Paris" and the chatbot would
+        recognize it.
+
+        Arguments:
+        - title: the user input
+        
+        Example:
+        function1(self, "I like finding nemo") 
+        output: [4610]
         """
-        pass
+        
+        indices = []
+        
+        for i, movie in enumerate(self.titles):
+            full_title = movie[0]
+            
+            # use lower() so that matching is case-insensitive
+            if title.lower() in full_title.lower():
+                indices.append(i)
+            else:
+                total_matches = 0
+                tokenized_input = self.remove_non_alphanumeric_tokens(title.lower())
+                tokenized_potential_title = self.remove_non_alphanumeric_tokens(full_title.lower())
+                
+                for word in tokenized_input:
+                    if word in tokenized_potential_title:
+                        total_matches += 1
+                
+                percent = 0
+                
+                if len(tokenized_potential_title) <= 2:
+                    percent = 0.5
+                elif len(tokenized_potential_title) <= 3:
+                    percent = 0.6
+                elif len(tokenized_potential_title) <= 4:
+                    percent = 0.5
+                elif len(tokenized_potential_title) <= 5:
+                    percent = 0.6
+                else:
+                    percent = 0.5
+                
+                if (total_matches/len(tokenized_potential_title)) >= percent: 
+                    indices.append(i)
+        
+        return indices
 
     def function2():
         """
-        TODO: delete and replace with your function.
-        Be sure to put an adequate description in this docstring.  
-        """
-        pass  
+        See function1()-- we've implemented Options 1 and 5 in a single title-matching function.
+        function1() would replace our find_movies_idx_by_title() function
+        """  
+        pass
 
     def function3(): 
         """
